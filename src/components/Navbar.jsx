@@ -8,9 +8,7 @@ export const Navbar = () => {
             <div class="max-w-6xl mx-auto px-4 sm:px-6">
                 <div class="flex items-center justify-between h-16">
                     <a href="#" class="flex items-center gap-3 text-lg font-bold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                        <span class="w-9 h-9 rounded-lg icon-tile flex items-center justify-center">
-                            <img src="/favicon.ico?v=6" alt={APP_NAME + ' logo'} class="w-8 h-8 object-contain" />
-                        </span>
+                        <img src="/favicon.ico?v=7" alt={APP_NAME + ' logo'} class="w-11 h-11 rounded-lg object-cover shadow-sm" />
                         <span>{APP_NAME}</span>
                     </a>
                     <div class="flex items-center gap-2">
