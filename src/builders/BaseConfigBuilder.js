@@ -17,6 +17,7 @@ export class BaseConfigBuilder {
         this.providerUrls = [];  // URLs to use as providers (auto-sync)
         this.autoProviderDescriptors = undefined;
         this.subscriptionUserinfo = undefined;
+        this.conversionReport = { converted: [], skipped: [], parseIssues: [] };
     }
 
     async build() {
@@ -136,6 +137,7 @@ export class BaseConfigBuilder {
                         }
                     } catch (error) {
                         console.error('Error processing HTTP subscription:', error);
+                        this.conversionReport.parseIssues.push({ value: trimmedUrl, reason: '订阅地址无法获取或解析' });
                     }
                     continue;
                 }
@@ -164,11 +166,15 @@ export class BaseConfigBuilder {
                             const subResult = await ProxyParser.parse(item, this.userAgent);
                             if (subResult) {
                                 parsedItems.push(subResult);
+                            } else {
+                                this.conversionReport.parseIssues.push({ value: item, reason: '无法识别的节点协议或链接格式' });
                             }
                         }
                     }
                 } else if (result) {
                     parsedItems.push(result);
+                } else {
+                    this.conversionReport.parseIssues.push({ value: trimmedUrl, reason: '无法识别的节点协议或链接格式' });
                 }
             }
         }
@@ -301,6 +307,17 @@ export class BaseConfigBuilder {
         return this.subscriptionUserinfo;
     }
 
+    getConversionReport() {
+        return {
+            converted: [...this.conversionReport.converted],
+            skipped: [...this.conversionReport.skipped, ...this.conversionReport.parseIssues]
+        };
+    }
+
+    isProxySupported(proxy) {
+        return Boolean(proxy?.type);
+    }
+
     getOutboundsList() {
         let outbounds;
         if (typeof this.selectedRules === 'string' && PREDEFINED_RULE_SETS[this.selectedRules]) {
@@ -361,9 +378,31 @@ export class BaseConfigBuilder {
         const validItems = customItems.filter(item => item != null);
         validItems.forEach(item => {
             if (item?.tag) {
+                if (!this.isProxySupported(item)) {
+                    this.conversionReport.skipped.push({
+                        name: item.tag,
+                        type: item.type || 'unknown',
+                        reason: '目标客户端不支持该协议'
+                    });
+                    return;
+                }
                 const convertedProxy = this.convertProxy(item);
-                if (convertedProxy) {
+                if (typeof convertedProxy === 'string' && convertedProxy.trimStart().startsWith('#')) {
+                    this.conversionReport.skipped.push({
+                        name: item.tag,
+                        type: item.type || 'unknown',
+                        reason: '目标客户端不支持该协议'
+                    });
                     this.addProxyToConfig(convertedProxy);
+                } else if (convertedProxy) {
+                    this.addProxyToConfig(convertedProxy);
+                    this.conversionReport.converted.push({ name: item.tag, type: item.type });
+                } else {
+                    this.conversionReport.skipped.push({
+                        name: item.tag,
+                        type: item.type || 'unknown',
+                        reason: '节点配置缺少必要字段'
+                    });
                 }
             }
         });

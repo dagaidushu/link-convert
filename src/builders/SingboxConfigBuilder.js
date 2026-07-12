@@ -90,6 +90,10 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         return this.config.outbounds.filter(outbound => outbound?.server != undefined);
     }
 
+    isProxySupported(proxy) {
+        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']).has(proxy?.type);
+    }
+
     getProxyName(proxy) {
         return proxy.tag;
     }

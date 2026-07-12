@@ -24,6 +24,10 @@ export class SurgeConfigBuilder extends BaseConfigBuilder {
         return this.config.proxies || [];
     }
 
+    isProxySupported(proxy) {
+        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic']).has(proxy?.type);
+    }
+
     /**
      * Get only valid proxies (filter out comment lines for unsupported types)
      * @returns {string[]} Array of valid proxy strings (excluding comments)
@@ -94,6 +98,25 @@ export class SurgeConfigBuilder extends BaseConfigBuilder {
                     if (proxy.transport.headers) {
                         surgeProxy += `, ws-headers=Host:${proxy.transport.headers.host}`;
                     }
+                } else if (proxy.transport?.type === 'grpc') {
+                    surgeProxy += `, grpc-service-name=${proxy.transport.service_name}`;
+                }
+                break;
+            case 'vless':
+                surgeProxy = `${proxy.tag} = vless, ${proxy.server}, ${proxy.server_port}, uuid=${proxy.uuid}`;
+                if (proxy.tls?.enabled) surgeProxy += ', tls=true';
+                if (proxy.tls?.server_name) surgeProxy += `, sni=${proxy.tls.server_name}`;
+                if (proxy.tls?.insecure) surgeProxy += ', skip-cert-verify=true';
+                if (proxy.tls?.alpn) surgeProxy += `, alpn=${proxy.tls.alpn.join(',')}`;
+                if (proxy.tls?.utls?.fingerprint) surgeProxy += `, client-fingerprint=${proxy.tls.utls.fingerprint}`;
+                if (proxy.tls?.reality?.enabled) {
+                    surgeProxy += `, reality-public-key=${proxy.tls.reality.public_key}`;
+                    if (proxy.tls.reality.short_id) surgeProxy += `, reality-short-id=${proxy.tls.reality.short_id}`;
+                }
+                if (proxy.flow) surgeProxy += `, flow=${proxy.flow}`;
+                if (proxy.transport?.type === 'ws') {
+                    surgeProxy += `, ws=true, ws-path=${proxy.transport.path || '/'}`;
+                    if (proxy.transport.headers?.host) surgeProxy += `, ws-headers=Host:${proxy.transport.headers.host}`;
                 } else if (proxy.transport?.type === 'grpc') {
                     surgeProxy += `, grpc-service-name=${proxy.transport.service_name}`;
                 }

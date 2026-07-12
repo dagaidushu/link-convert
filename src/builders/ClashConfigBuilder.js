@@ -47,6 +47,30 @@ function getClashUdpValue(proxy, defaultEnabled = true) {
     return defaultEnabled;
 }
 
+function getClashTransportOptions(transport) {
+    if (!transport?.type) return {};
+    if (transport.type === 'httpupgrade') {
+        return {
+            'httpupgrade-opts': {
+                path: transport.path || '/',
+                host: transport.host || transport.headers?.host,
+                headers: transport.headers
+            }
+        };
+    }
+    if (transport.type === 'xhttp') {
+        return {
+            'xhttp-opts': {
+                path: transport.path || '/',
+                host: transport.host || transport.headers?.host,
+                mode: transport.mode,
+                headers: transport.headers
+            }
+        };
+    }
+    return {};
+}
+
 export class ClashConfigBuilder extends BaseConfigBuilder {
     constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true) {
         if (!baseConfig) {
@@ -124,6 +148,10 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         return this.config.proxies || [];
     }
 
+    isProxySupported(proxy) {
+        return new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']).has(proxy?.type);
+    }
+
     getProxyName(proxy) {
         return proxy.name;
     }
@@ -184,6 +212,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                             host: proxy.transport.host
                         }
                         : undefined,
+                    ...getClashTransportOptions(proxy.transport),
                     udp: getClashUdpValue(proxy)
                 };
             case 'vless':
@@ -215,6 +244,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
                     ...(proxy.packet_encoding ? { 'packet-encoding': proxy.packet_encoding } : {}),
                     'flow': proxy.flow ?? undefined,
+                    ...getClashTransportOptions(proxy.transport),
                 };
             case 'hysteria2':
                 return {
@@ -264,6 +294,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
                     'flow': proxy.flow ?? undefined,
                     udp: getClashUdpValue(proxy),
+                    ...getClashTransportOptions(proxy.transport),
                 };
             case 'tuic':
                 return {
@@ -299,8 +330,37 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     ...(proxy['idle-session-timeout'] !== undefined ? { 'idle-session-timeout': proxy['idle-session-timeout'] } : {}),
                     ...(proxy['min-idle-session'] !== undefined ? { 'min-idle-session': proxy['min-idle-session'] } : {}),
                 };
+            case 'shadowsocksr':
+                return {
+                    name: proxy.tag,
+                    type: 'ssr',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    cipher: proxy.method,
+                    password: proxy.password,
+                    protocol: proxy.protocol,
+                    'protocol-param': proxy.protocol_param,
+                    obfs: proxy.obfs,
+                    'obfs-param': proxy.obfs_param,
+                    udp: getClashUdpValue(proxy)
+                };
+            case 'wireguard':
+                return {
+                    name: proxy.tag,
+                    type: 'wireguard',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    'private-key': proxy.private_key,
+                    'public-key': proxy.peer_public_key,
+                    'pre-shared-key': proxy.pre_shared_key,
+                    ip: proxy.local_address,
+                    reserved: proxy.reserved,
+                    mtu: proxy.mtu,
+                    'persistent-keepalive': proxy.persistent_keepalive_interval,
+                    udp: getClashUdpValue(proxy)
+                };
             default:
-                return proxy; // Return as-is if no specific conversion is defined
+                return null;
         }
     }
 
