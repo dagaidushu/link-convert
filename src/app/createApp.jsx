@@ -349,7 +349,12 @@ export function createApp(bindings = {}) {
                 return c.text('Invalid short link target', 400);
             }
             const shortLinks = requireShortLinkService(services.shortLinks);
-            const code = await shortLinks.createShortLink(queryString, c.req.query('shortCode'), target);
+            const code = await shortLinks.createShortLink(
+                queryString,
+                c.req.query('shortCode'),
+                target,
+                c.req.query('ttl')
+            );
             return c.text(code);
         } catch (error) {
             return handleError(c, error, runtime.logger);
@@ -375,6 +380,27 @@ export function createApp(bindings = {}) {
     app.get('/c/:code', redirectHandler('clash'));
     app.get('/x/:code', redirectHandler('xray'));
     app.get('/xj/:code', redirectHandler('xray', 'xj'));
+
+    app.get('/short-links', async (c) => {
+        try {
+            requireShortLinkAdminAccess(c, runtime);
+            const shortLinks = requireShortLinkService(services.shortLinks);
+            return c.json({ links: await shortLinks.listShortLinks() });
+        } catch (error) {
+            return handleError(c, error, runtime.logger);
+        }
+    });
+
+    app.delete('/short-links/:code', async (c) => {
+        try {
+            requireShortLinkAdminAccess(c, runtime);
+            const shortLinks = requireShortLinkService(services.shortLinks);
+            await shortLinks.deleteShortLink(c.req.param('code'), c.req.query('target') || '');
+            return c.json({ deleted: true });
+        } catch (error) {
+            return handleError(c, error, runtime.logger);
+        }
+    });
 
     app.post('/config', async (c) => {
         try {
@@ -574,6 +600,19 @@ function requireShortLinkService(service) {
         throw new MissingDependencyError('Short link functionality is unavailable');
     }
     return service;
+}
+
+function requireShortLinkAdminAccess(c, runtime) {
+    const expectedToken = runtime.config.shortLinkAdminToken;
+    if (!expectedToken) {
+        throw new ServiceError('Short link management is disabled. Set the SHORT_LINK_ADMIN_TOKEN secret first.', 503);
+    }
+    const authorization = getRequestHeader(c.req, 'Authorization') || '';
+    const bearerToken = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+    const suppliedToken = bearerToken || c.req.query('token') || '';
+    if (suppliedToken !== expectedToken) {
+        throw new ServiceError('Short link management token is invalid.', 403);
+    }
 }
 
 function requireConfigStorage(service) {
