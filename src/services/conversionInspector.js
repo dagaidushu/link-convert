@@ -1,10 +1,11 @@
 import { BaseConfigBuilder } from '../builders/BaseConfigBuilder.js';
 
 const TARGETS = [
-    { key: 'singbox', label: 'Sing-box', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']) },
-    { key: 'clash', label: 'Clash / Mihomo', protocols: new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']) },
-    { key: 'surge', label: 'Surge', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic']) },
-    { key: 'xrayJson', label: 'Xray JSON', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan']) }
+    { key: 'xray', label: '通用 Base64', protocols: null },
+    { key: 'singbox', label: 'Sing-box', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http']) },
+    { key: 'clash', label: 'Clash / Mihomo', protocols: new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http', 'naive']) },
+    { key: 'surge', label: 'Surge', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'socks', 'http']) },
+    { key: 'xrayJson', label: 'Xray JSON', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'socks', 'http']) }
 ];
 
 export async function inspectConversion(input, { lang = 'zh-CN', userAgent } = {}) {
@@ -17,7 +18,7 @@ export async function inspectConversion(input, { lang = 'zh-CN', userAgent } = {
         parseIssues: parseReport.skipped,
         targets: TARGETS.map(target => {
             const skipped = proxies
-                .filter(proxy => !target.protocols.has(proxy?.type))
+                .filter(proxy => target.protocols && !target.protocols.has(proxy?.type))
                 .map(proxy => ({
                     name: proxy.tag || proxy.server || '未命名节点',
                     type: proxy.type || 'unknown',
