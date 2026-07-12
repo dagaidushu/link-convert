@@ -149,7 +149,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     }
 
     isProxySupported(proxy) {
-        return new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']).has(proxy?.type);
+        return new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http', 'naive']).has(proxy?.type);
     }
 
     getProxyName(proxy) {
@@ -266,6 +266,23 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
                     ...(proxy.fast_open !== undefined ? { 'fast-open': proxy.fast_open } : {}),
                 };
+            case 'hysteria':
+                return {
+                    name: proxy.tag,
+                    type: 'hysteria',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    'auth-str': proxy.auth,
+                    protocol: proxy.protocol || 'udp',
+                    up: proxy.up,
+                    down: proxy.down,
+                    obfs: proxy.obfs,
+                    'obfs-param': proxy.obfs_param,
+                    sni: proxy.tls?.server_name || '',
+                    'skip-cert-verify': !!proxy.tls?.insecure,
+                    ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
+                    ...(proxy.fast_open !== undefined ? { 'fast-open': proxy.fast_open } : {})
+                };
             case 'trojan':
                 return {
                     name: proxy.tag,
@@ -358,6 +375,39 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     mtu: proxy.mtu,
                     'persistent-keepalive': proxy.persistent_keepalive_interval,
                     udp: getClashUdpValue(proxy)
+                };
+            case 'socks':
+                return {
+                    name: proxy.tag,
+                    type: proxy.version === '4' ? 'socks4' : 'socks5',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    ...(proxy.username ? { username: proxy.username } : {}),
+                    ...(proxy.password ? { password: proxy.password } : {}),
+                    udp: getClashUdpValue(proxy)
+                };
+            case 'http':
+                return {
+                    name: proxy.tag,
+                    type: 'http',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    ...(proxy.username ? { username: proxy.username } : {}),
+                    ...(proxy.password ? { password: proxy.password } : {}),
+                    ...(proxy.tls?.enabled ? { tls: true } : {}),
+                    ...(proxy.tls?.server_name ? { sni: proxy.tls.server_name } : {}),
+                    ...(proxy.tls?.insecure ? { 'skip-cert-verify': true } : {})
+                };
+            case 'naive':
+                return {
+                    name: proxy.tag,
+                    type: 'naive',
+                    server: proxy.server,
+                    port: proxy.server_port,
+                    username: proxy.username,
+                    password: proxy.password,
+                    ...(proxy.tls?.server_name ? { sni: proxy.tls.server_name } : {}),
+                    ...(proxy.tls?.insecure ? { 'skip-cert-verify': true } : {})
                 };
             default:
                 return null;

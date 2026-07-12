@@ -51,7 +51,7 @@ export class XrayConfigBuilder extends BaseConfigBuilder {
     }
 
     isProxySupported(proxy) {
-        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan']).has(proxy?.type);
+        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'socks', 'http']).has(proxy?.type);
     }
 
     getProxies() { return this.config.outbounds; }
@@ -83,6 +83,23 @@ export class XrayConfigBuilder extends BaseConfigBuilder {
                 protocol: 'trojan',
                 settings: { servers: [{ address: proxy.server, port: proxy.server_port, password: proxy.password }] },
                 streamSettings: buildStreamSettings(proxy)
+            };
+        }
+        if (proxy.type === 'socks' || proxy.type === 'http') {
+            const user = proxy.username || proxy.password
+                ? { user: proxy.username || '', pass: proxy.password || '' }
+                : undefined;
+            return {
+                tag: proxy.tag,
+                protocol: proxy.type,
+                settings: {
+                    servers: [{
+                        address: proxy.server,
+                        port: proxy.server_port,
+                        ...(user ? { users: [user] } : {})
+                    }]
+                },
+                ...(proxy.type === 'http' && proxy.tls?.enabled ? { streamSettings: buildStreamSettings(proxy) } : {})
             };
         }
         return null;

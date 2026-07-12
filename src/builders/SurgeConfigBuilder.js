@@ -25,7 +25,7 @@ export class SurgeConfigBuilder extends BaseConfigBuilder {
     }
 
     isProxySupported(proxy) {
-        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic']).has(proxy?.type);
+        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'socks', 'http']).has(proxy?.type);
     }
 
     /**
@@ -150,6 +150,19 @@ export class SurgeConfigBuilder extends BaseConfigBuilder {
                 if (proxy.udp_relay_mode) {
                     surgeProxy += `, udp-relay-mode=${proxy.udp_relay_mode}`;
                 }
+                break;
+            case 'socks':
+                surgeProxy = `${proxy.tag} = socks5, ${proxy.server}, ${proxy.server_port}`;
+                if (proxy.username) surgeProxy += `, username=${proxy.username}`;
+                if (proxy.password) surgeProxy += `, password=${proxy.password}`;
+                break;
+            case 'http':
+                surgeProxy = `${proxy.tag} = http, ${proxy.server}, ${proxy.server_port}`;
+                if (proxy.username) surgeProxy += `, username=${proxy.username}`;
+                if (proxy.password) surgeProxy += `, password=${proxy.password}`;
+                if (proxy.tls?.enabled) surgeProxy += ', tls=true';
+                if (proxy.tls?.server_name) surgeProxy += `, sni=${proxy.tls.server_name}`;
+                if (proxy.tls?.insecure) surgeProxy += ', skip-cert-verify=true';
                 break;
             default:
                 surgeProxy = `# ${proxy.tag} - Unsupported proxy type: ${proxy.type}`;

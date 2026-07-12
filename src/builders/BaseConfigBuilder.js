@@ -1,4 +1,5 @@
 import { ProxyParser } from '../parsers/index.js';
+import { isHttpProxyUri } from '../parsers/protocols/httpProxyParser.js';
 import { createStableProviderName, deepCopy, tryDecodeSubscriptionLines, decodeBase64 } from '../utils.js';
 import { createTranslator } from '../i18n/index.js';
 import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/index.js';
@@ -89,6 +90,11 @@ export class BaseConfigBuilder {
 
                 // Check if it's an HTTP(S) URL - may use as provider if format matches
                 if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+                    if (isHttpProxyUri(trimmedUrl)) {
+                        const proxy = await ProxyParser.parse(trimmedUrl, this.userAgent);
+                        if (proxy) parsedItems.push(proxy);
+                        continue;
+                    }
                     const { fetchSubscriptionWithFormat } = await import('../parsers/subscription/httpSubscriptionFetcher.js');
 
                     try {
@@ -137,6 +143,9 @@ export class BaseConfigBuilder {
                         }
                     } catch (error) {
                         console.error('Error processing HTTP subscription:', error);
+                        if (error?.message) {
+                            this.conversionReport.parseIssues.push({ value: trimmedUrl, reason: error.message });
+                        }
                         this.conversionReport.parseIssues.push({ value: trimmedUrl, reason: '订阅地址无法获取或解析' });
                     }
                     continue;

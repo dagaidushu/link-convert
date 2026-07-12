@@ -91,7 +91,7 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
     }
 
     isProxySupported(proxy) {
-        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard']).has(proxy?.type);
+        return new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http']).has(proxy?.type);
     }
 
     getProxyName(proxy) {
