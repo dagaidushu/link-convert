@@ -102,6 +102,8 @@ export const formLogicFn = (t) => {
             loading: false,
             generatedLinks: null,
             shortenedLinks: null,
+            conversionReport: null,
+            inspecting: false,
             shortening: false,
             customShortCode: '',
             parsingUrl: false,
@@ -395,10 +397,13 @@ export const formLogicFn = (t) => {
 
                     this.generatedLinks = {
                         xray: origin + '/xray?' + queryString,
+                        xrayJson: origin + '/xray?format=json&' + queryString,
                         singbox: origin + '/singbox?' + queryString,
                         clash: origin + '/clash?' + queryString,
                         surge: origin + '/surge?' + queryString
                     };
+
+                    await this.loadConversionReport();
 
                     // Scroll to results
                     setTimeout(() => {
@@ -413,6 +418,24 @@ export const formLogicFn = (t) => {
                     alert(window.APP_TRANSLATIONS.errorGeneratingLinks);
                 } finally {
                     this.loading = false;
+                }
+            },
+
+            async loadConversionReport() {
+                this.conversionReport = null;
+                this.inspecting = true;
+                try {
+                    const response = await fetch('/inspect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ input: this.input, userAgent: this.customUA })
+                    });
+                    if (!response.ok) throw new Error('Inspection request failed');
+                    this.conversionReport = await response.json();
+                } catch (error) {
+                    console.warn('Unable to inspect conversion compatibility:', error);
+                } finally {
+                    this.inspecting = false;
                 }
             },
 
@@ -447,6 +470,16 @@ export const formLogicFn = (t) => {
                                 apiUrl += `&shortCode=${encodeURIComponent(shortCode)}`;
                             }
 
+                            // Map types to their corresponding path prefixes
+                            const prefixMap = {
+                                xray: 'x',
+                                xrayJson: 'xj',
+                                singbox: 'b',
+                                clash: 'c',
+                                surge: 's'
+                            };
+
+                            apiUrl += `&target=${prefixMap[type]}`;
                             const response = await fetch(apiUrl);
                             if (!response.ok) {
                                 throw new Error(`Failed to shorten ${type} link`);
@@ -454,19 +487,11 @@ export const formLogicFn = (t) => {
                             const returnedCode = await response.text();
 
                             // If this is the first request and no custom code was provided,
-                            // use the backend-generated code for all subsequent requests
+                            // use the backend-generated code for all subsequent requests.
                             if (isFirstRequest && !shortCode) {
                                 shortCode = returnedCode;
                             }
                             isFirstRequest = false;
-
-                            // Map types to their corresponding path prefixes
-                            const prefixMap = {
-                                xray: 'x',
-                                singbox: 'b',
-                                clash: 'c',
-                                surge: 's'
-                            };
 
                             shortened[type] = `${origin}/${prefixMap[type]}/${returnedCode}`;
                         } catch (error) {

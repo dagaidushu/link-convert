@@ -8,6 +8,7 @@ import { formLogicFn } from './formLogic.js';
 
 const LINK_FIELDS = [
   { key: 'xray', labelKey: 'xrayLink' },
+  { key: 'xrayJson', label: 'Xray JSON' },
   { key: 'singbox', labelKey: 'singboxLink' },
   { key: 'clash', labelKey: 'clashLink' },
   { key: 'surge', labelKey: 'surgeLink' }
@@ -357,13 +358,13 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
         {LINK_FIELDS.map((field) => (
           <div class="relative group" key={field.key}>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t(field.labelKey)}
+              {field.label || t(field.labelKey)}
             </label>
             <div class="flex gap-2">
               <input
                 type="text"
                 readonly
-                x-bind:value={`shortenedLinks ? shortenedLinks?.${field.key} : generatedLinks?.${field.key}`}
+                x-bind:value={`shortenedLinks?.${field.key} || generatedLinks?.${field.key}`}
                 class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:border-transparent transition-all duration-200 font-mono text-sm"
                 x-bind:class="shortenedLinks ? 'text-primary-600 dark:text-primary-400 font-semibold focus:ring-primary-500' : 'text-gray-600 dark:text-gray-400 focus:ring-green-500'"
               />
@@ -383,6 +384,29 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
             </div>
           </div>
         ))}
+      </div>
+
+      <div x-show="inspecting || conversionReport" class="mt-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50 p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <i class="fas fa-list-check text-primary-600"></i>
+            转换报告
+          </h3>
+          <i x-show="inspecting" class="fas fa-spinner fa-spin text-primary-600"></i>
+        </div>
+        <div x-show="conversionReport" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <template x-for="target in conversionReport?.targets || []" x-bind:key="target.key">
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="target.label"></span>
+                <span class="text-xs font-semibold text-primary-700 dark:text-primary-300" x-text="`${target.converted} / ${conversionReport.total}`"></span>
+              </div>
+              <p x-show="target.skipped.length" class="mt-2 text-xs text-amber-700 dark:text-amber-300" x-text="target.skipped.map(item => `${item.name}: ${item.reason}`).join('；')"></p>
+              <p x-show="!target.skipped.length" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">全部节点可转换</p>
+            </div>
+          </template>
+        </div>
+        <p x-show="conversionReport?.parseIssues?.length" class="mt-3 text-xs text-red-600 dark:text-red-300" x-text="conversionReport.parseIssues.map(item => item.reason).join('；')"></p>
       </div>
 
       {/* Shortening Controls */}
