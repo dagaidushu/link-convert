@@ -7,23 +7,35 @@ import { parseTuic } from './protocols/tuicParser.js';
 import { parseAnyTls } from './protocols/anytlsParser.js';
 import { parseWireGuard } from './protocols/wireguardParser.js';
 import { parseShadowsocksR } from './protocols/shadowsocksrParser.js';
+import { parseSocks } from './protocols/socksParser.js';
+import { parseHttpProxy } from './protocols/httpProxyParser.js';
+import { parseNaive } from './protocols/naiveParser.js';
+import { parseShadowTls } from './protocols/shadowtlsParser.js';
+import { parseHysteria } from './protocols/hysteriaParser.js';
 import { fetchSubscription } from './subscription/httpSubscriptionFetcher.js';
 
 const protocolParsers = {
     ss: parseShadowsocks,
     vmess: parseVmess,
     vless: parseVless,
-    hysteria: parseHysteria2,
+    hysteria: parseHysteria,
     hysteria2: parseHysteria2,
     hy2: parseHysteria2,
     ssr: parseShadowsocksR,
     anytls: parseAnyTls,
     wireguard: parseWireGuard,
     wg: parseWireGuard,
-    http: fetchSubscription,
+    http: parseHttpProxy,
     https: fetchSubscription,
     trojan: parseTrojan,
-    tuic: parseTuic
+    tuic: parseTuic,
+    socks: parseSocks,
+    socks4: parseSocks,
+    socks5: parseSocks,
+    naive: parseNaive,
+    'naive+https': parseNaive,
+    shadowtls: parseShadowTls,
+    'shadow-tls': parseShadowTls
 };
 
 export class ProxyParser {
