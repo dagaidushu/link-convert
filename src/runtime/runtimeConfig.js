@@ -13,6 +13,7 @@
  * @typedef {Object} RuntimeConfig
  * @property {number} [configTtlSeconds]
  * @property {number} [shortLinkTtlSeconds]
+ * @property {string} [shortLinkAdminToken]
  */
 
 /**
@@ -31,7 +32,7 @@ const DEFAULTS = {
  * Normalize optional runtime bindings and provide safe defaults.
  *
  * @param {RuntimeBindings | undefined} runtime
- * @returns {{ kv: KeyValueStore | null, assetFetcher: AssetFetcher | null, logger: Console, config: RuntimeConfig & { configTtlSeconds: number, shortLinkTtlSeconds: number | null } }}
+ * @returns {{ kv: KeyValueStore | null, assetFetcher: AssetFetcher | null, logger: Console, config: RuntimeConfig & { configTtlSeconds: number, shortLinkTtlSeconds: number | null, shortLinkAdminToken: string | null } }}
  */
 export function normalizeRuntime(runtime = {}) {
     return {
@@ -40,7 +41,8 @@ export function normalizeRuntime(runtime = {}) {
         logger: runtime.logger ?? console,
         config: {
             configTtlSeconds: runtime.config?.configTtlSeconds ?? DEFAULTS.configTtlSeconds,
-            shortLinkTtlSeconds: runtime.config?.shortLinkTtlSeconds ?? null
+            shortLinkTtlSeconds: runtime.config?.shortLinkTtlSeconds ?? null,
+            shortLinkAdminToken: runtime.config?.shortLinkAdminToken ?? null
         }
     };
 }
