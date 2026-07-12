@@ -310,14 +310,35 @@ export function createTlsConfig(params) {
 }
 
 export function createTransportConfig(params) {
-	return {
-		type: params.type,
-		path: params.path ?? undefined,
-		...(params.host && { 'headers': { 'host': params.host } }),
-		...(params.type === 'grpc' && {
-			service_name: params.serviceName ?? undefined,
-		})
-	};
+    const transportType = String(params.type || 'tcp').toLowerCase();
+    if (transportType === 'tcp') return undefined;
+
+    const headers = params.host ? { 'host': params.host } : undefined;
+    if (transportType === 'xhttp' || transportType === 'splithttp') {
+        return {
+            type: 'xhttp',
+            path: params.path ?? undefined,
+            host: params.host ?? undefined,
+            mode: params.mode ?? undefined,
+            headers
+        };
+    }
+    if (transportType === 'httpupgrade') {
+        return {
+            type: 'httpupgrade',
+            path: params.path ?? undefined,
+            host: params.host ?? undefined,
+            headers
+        };
+    }
+    return {
+        type: transportType,
+        path: params.path ?? undefined,
+        ...(headers && { headers }),
+        ...(transportType === 'grpc' && {
+            service_name: params.serviceName ?? undefined,
+        })
+    };
 }
 
 // Parse boolean value from various formats
