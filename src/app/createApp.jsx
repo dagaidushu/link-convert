@@ -50,26 +50,21 @@ export function createApp(bindings = {}) {
                     <Navbar />
                     <main class="flex-1">
                         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 pt-24">
-                            <section class="tool-hero rounded-lg px-5 py-6 md:px-8 md:py-7 mb-8">
-                                <div class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
-                                    <div class="hidden md:block" aria-hidden="true"></div>
-                                    <div class="max-w-3xl text-center">
-                                        <div class="flex items-center justify-center gap-2 mb-3">
-                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Conversion</span>
-                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Subscription</span>
-                                        </div>
-                                        <h1 class="text-3xl md:text-5xl font-bold text-gray-950 dark:text-white mb-3 tracking-tight">
+                            <section class="tool-hero rounded-lg px-5 py-5 md:px-8 md:py-6 mb-8">
+                                <div class="flex flex-col items-center gap-3 text-center">
+                                    <div class="flex flex-wrap justify-center gap-2 text-sm font-semibold">
+                                        <span class="format-pill rounded-lg px-3 py-2">Sing-Box</span>
+                                        <span class="format-pill rounded-lg px-3 py-2">Clash</span>
+                                        <span class="format-pill rounded-lg px-3 py-2">Xray</span>
+                                        <span class="format-pill rounded-lg px-3 py-2">Surge</span>
+                                    </div>
+                                    <div class="max-w-3xl">
+                                        <h1 class="text-4xl md:text-6xl font-bold text-gray-950 dark:text-white mb-2 tracking-tight">
                                             {APP_NAME}
                                         </h1>
                                         <p class="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
                                             {subtitle}
                                         </p>
-                                    </div>
-                                    <div class="flex flex-wrap justify-center md:justify-end gap-2 text-sm font-semibold">
-                                        <span class="format-pill rounded-lg px-3 py-2">Sing-Box</span>
-                                        <span class="format-pill rounded-lg px-3 py-2">Clash</span>
-                                        <span class="format-pill rounded-lg px-3 py-2">Xray</span>
-                                        <span class="format-pill rounded-lg px-3 py-2">Surge</span>
                                     </div>
                                 </div>
                             </section>
