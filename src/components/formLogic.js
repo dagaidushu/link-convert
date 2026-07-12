@@ -1,5 +1,19 @@
 export const formLogicFn = (t) => {
     window.formData = function () {
+        const presetLinks = {
+            all: null,
+            v2rayn: ['xray'],
+            singbox: ['singbox'],
+            mihomo: ['clash'],
+            surge: ['surge']
+        };
+        const presetReports = {
+            all: null,
+            v2rayn: ['xray'],
+            singbox: ['singbox'],
+            mihomo: ['clash'],
+            surge: ['surge']
+        };
         // Inline parseSurgeConfigInput to make it available in toString()
         const parseSurgeValue = (rawValue = '') => {
             const trimmed = rawValue.trim();
@@ -99,6 +113,7 @@ export const formLogicFn = (t) => {
             configValidationState: '',
             configValidationMessage: '',
             customUA: '',
+            clientPreset: 'all',
             loading: false,
             generatedLinks: null,
             shortenedLinks: null,
@@ -106,6 +121,11 @@ export const formLogicFn = (t) => {
             inspecting: false,
             shortening: false,
             customShortCode: '',
+            shortLinkTtl: '',
+            shortLinkAdminToken: '',
+            managedShortLinks: [],
+            managingShortLinks: false,
+            shortLinkManagerError: '',
             parsingUrl: false,
             parseDebounceTimer: null,
             // These will be populated from window.APP_TRANSLATIONS
@@ -138,9 +158,11 @@ export const formLogicFn = (t) => {
                 this.externalController = localStorage.getItem('externalController') || '';
                 this.externalUiDownloadUrl = localStorage.getItem('externalUiDownloadUrl') || '';
                 this.customUA = localStorage.getItem('userAgent') || '';
+                this.clientPreset = localStorage.getItem('clientPreset') || 'all';
                 this.configEditor = localStorage.getItem('configEditor') || '';
                 this.configType = localStorage.getItem('configType') || 'singbox';
                 this.customShortCode = localStorage.getItem('customShortCode') || '';
+                this.shortLinkTtl = localStorage.getItem('shortLinkTtl') || '';
                 const initialUrlParams = new URLSearchParams(window.location.search);
                 this.currentConfigId = initialUrlParams.get('configId') || '';
 
@@ -169,6 +191,7 @@ export const formLogicFn = (t) => {
                 this.$watch('externalController', val => localStorage.setItem('externalController', val));
                 this.$watch('externalUiDownloadUrl', val => localStorage.setItem('externalUiDownloadUrl', val));
                 this.$watch('customUA', val => localStorage.setItem('userAgent', val));
+                this.$watch('clientPreset', val => localStorage.setItem('clientPreset', val));
                 this.$watch('configEditor', val => {
                     localStorage.setItem('configEditor', val);
                     this.resetConfigValidation();
@@ -178,11 +201,22 @@ export const formLogicFn = (t) => {
                     this.resetConfigValidation();
                 });
                 this.$watch('customShortCode', val => localStorage.setItem('customShortCode', val));
+                this.$watch('shortLinkTtl', val => localStorage.setItem('shortLinkTtl', val));
                 this.$watch('accordionSections', val => localStorage.setItem('accordionSections', JSON.stringify(val)), { deep: true });
             },
 
             toggleAccordion(section) {
                 this.accordionSections[section] = !this.accordionSections[section];
+            },
+
+            isLinkVisible(key) {
+                const visibleLinks = presetLinks[this.clientPreset] || null;
+                return !visibleLinks || visibleLinks.includes(key);
+            },
+
+            isReportVisible(key) {
+                const visibleReports = presetReports[this.clientPreset] || null;
+                return !visibleReports || visibleReports.includes(key);
             },
 
             applyPredefinedRule() {
@@ -480,6 +514,9 @@ export const formLogicFn = (t) => {
                             };
 
                             apiUrl += `&target=${prefixMap[type]}`;
+                            if (this.shortLinkTtl) {
+                                apiUrl += `&ttl=${encodeURIComponent(this.shortLinkTtl)}`;
+                            }
                             const response = await fetch(apiUrl);
                             if (!response.ok) {
                                 throw new Error(`Failed to shorten ${type} link`);
@@ -506,6 +543,42 @@ export const formLogicFn = (t) => {
                     alert(window.APP_TRANSLATIONS.shortenFailed);
                 } finally {
                     this.shortening = false;
+                }
+            },
+
+            async loadManagedShortLinks() {
+                this.shortLinkManagerError = '';
+                if (!this.shortLinkAdminToken) {
+                    this.shortLinkManagerError = '请输入短链接管理令牌';
+                    return;
+                }
+                this.managingShortLinks = true;
+                try {
+                    const response = await fetch('/short-links', {
+                        headers: { Authorization: `Bearer ${this.shortLinkAdminToken}` }
+                    });
+                    if (!response.ok) throw new Error(await response.text());
+                    const result = await response.json();
+                    this.managedShortLinks = result.links || [];
+                } catch (error) {
+                    this.shortLinkManagerError = error.message || '无法读取短链接';
+                } finally {
+                    this.managingShortLinks = false;
+                }
+            },
+
+            async deleteManagedShortLink(entry) {
+                if (!this.shortLinkAdminToken || !entry?.code) return;
+                this.shortLinkManagerError = '';
+                try {
+                    const response = await fetch(`/short-links/${encodeURIComponent(entry.code)}?target=${encodeURIComponent(entry.target)}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${this.shortLinkAdminToken}` }
+                    });
+                    if (!response.ok) throw new Error(await response.text());
+                    this.managedShortLinks = this.managedShortLinks.filter(item => !(item.code === entry.code && item.target === entry.target));
+                } catch (error) {
+                    this.shortLinkManagerError = error.message || '无法删除短链接';
                 }
             },
 

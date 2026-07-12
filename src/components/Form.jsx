@@ -352,11 +352,22 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
           </span>
           {t('subscriptionLinks')}
         </h2>
+        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+          <i class="fas fa-desktop text-primary-600"></i>
+          <span>客户端</span>
+          <select x-model="clientPreset" class="h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <option value="all">全部格式</option>
+            <option value="v2rayn">v2rayN</option>
+            <option value="singbox">Sing-box</option>
+            <option value="mihomo">Mihomo / Clash</option>
+            <option value="surge">Surge</option>
+          </select>
+        </label>
       </div>
 
       <div class="mt-6 space-y-4">
         {LINK_FIELDS.map((field) => (
-          <div class="relative group" key={field.key}>
+          <div class="relative group" key={field.key} x-show={`isLinkVisible('${field.key}')`}>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {field.label || t(field.labelKey)}
             </label>
@@ -396,7 +407,7 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
         </div>
         <div x-show="conversionReport" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <template x-for="target in conversionReport?.targets || []" x-bind:key="target.key">
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+            <div x-show="isReportVisible(target.key)" class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="target.label"></span>
                 <span class="text-xs font-semibold text-primary-700 dark:text-primary-300" x-text="`${target.converted} / ${conversionReport.total}`"></span>
@@ -423,6 +434,15 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
               class="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 text-center"
             />
           </div>
+          <label class="w-full max-w-md">
+            <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">短链接有效期</span>
+            <select x-model="shortLinkTtl" class="w-full h-10 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-center text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <option value="">永久有效</option>
+              <option value="86400">1 天</option>
+              <option value="604800">7 天</option>
+              <option value="2592000">30 天</option>
+            </select>
+          </label>
         </div>
         <div class="flex justify-center mt-4">
           <button
@@ -442,6 +462,30 @@ class="action-secondary px-6 py-3.5 rounded-lg font-semibold hover:bg-gray-50 da
               x-text="shortenedLinks ? showFullLinksText : (shortening ? shorteningText : shortenLinksText)"
             ></span>
           </button>
+        </div>
+      </div>
+
+      <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-5">
+        <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+          <label class="flex-1">
+            <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">短链接管理令牌</span>
+            <input type="password" x-model="shortLinkAdminToken" autocomplete="off" class="w-full h-10 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+          </label>
+          <button type="button" x-on:click="loadManagedShortLinks()" x-bind:disabled="managingShortLinks" title="查看短链接" class="w-10 h-10 rounded-lg format-pill hover:text-primary-700 dark:hover:text-primary-300 disabled:opacity-50 flex items-center justify-center">
+            <i class="fas" x-bind:class="managingShortLinks ? 'fa-spinner fa-spin' : 'fa-rotate-right'"></i>
+          </button>
+        </div>
+        <p x-show="shortLinkManagerError" class="mt-3 text-sm text-red-600 dark:text-red-300" x-text="shortLinkManagerError"></p>
+        <div x-show="managedShortLinks.length" class="mt-4 space-y-2">
+          <template x-for="entry in managedShortLinks" x-bind:key="`${entry.target}:${entry.code}`">
+            <div class="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm">
+              <span class="font-mono text-gray-900 dark:text-white" x-text="`/${entry.target}/${entry.code}`"></span>
+              <span class="ml-auto text-xs text-gray-500 dark:text-gray-400" x-text="entry.expiresAt ? `到期：${new Date(entry.expiresAt).toLocaleString()}` : '永久有效'"></span>
+              <button type="button" x-on:click="deleteManagedShortLink(entry)" title="删除短链接" class="w-8 h-8 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
