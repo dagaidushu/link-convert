@@ -4,6 +4,9 @@ import { parseVless } from './protocols/vlessParser.js';
 import { parseHysteria2 } from './protocols/hysteria2Parser.js';
 import { parseTrojan } from './protocols/trojanParser.js';
 import { parseTuic } from './protocols/tuicParser.js';
+import { parseAnyTls } from './protocols/anytlsParser.js';
+import { parseWireGuard } from './protocols/wireguardParser.js';
+import { parseShadowsocksR } from './protocols/shadowsocksrParser.js';
 import { fetchSubscription } from './subscription/httpSubscriptionFetcher.js';
 
 const protocolParsers = {
@@ -13,6 +16,10 @@ const protocolParsers = {
     hysteria: parseHysteria2,
     hysteria2: parseHysteria2,
     hy2: parseHysteria2,
+    ssr: parseShadowsocksR,
+    anytls: parseAnyTls,
+    wireguard: parseWireGuard,
+    wg: parseWireGuard,
     http: fetchSubscription,
     https: fetchSubscription,
     trojan: parseTrojan,

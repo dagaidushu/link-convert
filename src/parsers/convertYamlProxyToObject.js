@@ -258,6 +258,36 @@ export function convertYamlProxyToObject(p) {
                 tls
             };
         }
+        case 'ssr':
+        case 'shadowsocksr':
+            return {
+                tag: name,
+                type: 'shadowsocksr',
+                server: p.server,
+                server_port: parseInt(p.port),
+                method: p.cipher,
+                password: p.password,
+                protocol: p.protocol,
+                protocol_param: p['protocol-param'] || p.protocol_param,
+                obfs: p.obfs,
+                obfs_param: p['obfs-param'] || p.obfs_param,
+                udp: typeof p.udp !== 'undefined' ? !!p.udp : undefined
+            };
+        case 'wireguard':
+            return {
+                tag: name,
+                type: 'wireguard',
+                server: p.server,
+                server_port: parseInt(p.port),
+                private_key: p['private-key'] || p.private_key,
+                peer_public_key: p['public-key'] || p.peer_public_key,
+                pre_shared_key: p['pre-shared-key'] || p.pre_shared_key,
+                local_address: toArray(p.ip || p.address || p.local_address),
+                reserved: p.reserved,
+                mtu: p.mtu,
+                persistent_keepalive_interval: p['persistent-keepalive'] || p.persistent_keepalive_interval,
+                udp: typeof p.udp !== 'undefined' ? !!p.udp : undefined
+            };
         default:
             return null;
     }
