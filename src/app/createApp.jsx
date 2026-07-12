@@ -17,6 +17,8 @@ import { ConfigStorageService } from '../services/configStorageService.js';
 import { ServiceError, MissingDependencyError } from '../services/errors.js';
 import { normalizeRuntime } from '../runtime/runtimeConfig.js';
 import { PREDEFINED_RULE_SETS, SING_BOX_CONFIG, SING_BOX_CONFIG_V1_11, generateSubconverterConfig } from '../config/index.js';
+import { inspectConversion } from '../services/conversionInspector.js';
+import { XrayConfigBuilder } from '../builders/XrayConfigBuilder.js';
 
 const DEFAULT_USER_AGENT = 'curl/7.74.0';
 
@@ -49,20 +51,21 @@ export function createApp(bindings = {}) {
                     <main class="flex-1">
                         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8 pt-24">
                             <section class="tool-hero rounded-lg px-5 py-6 md:px-8 md:py-7 mb-8">
-                                <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-                                    <div class="max-w-3xl">
-                                        <div class="flex items-center gap-2 mb-3">
-                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Worker</span>
-                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Converter</span>
+                                <div class="grid gap-6 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                                    <div class="hidden md:block" aria-hidden="true"></div>
+                                    <div class="max-w-3xl text-center">
+                                        <div class="flex items-center justify-center gap-2 mb-3">
+                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Conversion</span>
+                                            <span class="format-pill rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wide">Subscription</span>
                                         </div>
                                         <h1 class="text-3xl md:text-5xl font-bold text-gray-950 dark:text-white mb-3 tracking-tight">
                                             {APP_NAME}
                                         </h1>
-                                        <p class="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl leading-relaxed">
+                                        <p class="text-base md:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
                                             {subtitle}
                                         </p>
                                     </div>
-                                    <div class="flex flex-wrap md:justify-end gap-2 text-sm font-semibold">
+                                    <div class="flex flex-wrap justify-center md:justify-end gap-2 text-sm font-semibold">
                                         <span class="format-pill rounded-lg px-3 py-2">Sing-Box</span>
                                         <span class="format-pill rounded-lg px-3 py-2">Clash</span>
                                         <span class="format-pill rounded-lg px-3 py-2">Xray</span>
@@ -278,6 +281,16 @@ export function createApp(bindings = {}) {
             return c.text('Missing config parameter', 400);
         }
 
+        if (c.req.query('format') === 'json') {
+            try {
+                const builder = new XrayConfigBuilder(inputString, c.get('lang'), c.req.query('ua') || getRequestHeader(c.req, 'User-Agent'));
+                const { config } = await builder.build();
+                return c.json(config, 200, { 'Content-Disposition': 'attachment; filename="xray.json"' });
+            } catch (error) {
+                return handleError(c, error, runtime.logger);
+            }
+        }
+
         const proxylist = inputString.split('\n');
         const finalProxyList = [];
         let subscriptionUserinfo;
@@ -336,23 +349,27 @@ export function createApp(bindings = {}) {
             }
             const queryString = parsedUrl.search;
 
+            const target = c.req.query('target') || '';
+            if (target && !['s', 'b', 'c', 'x', 'xj'].includes(target)) {
+                return c.text('Invalid short link target', 400);
+            }
             const shortLinks = requireShortLinkService(services.shortLinks);
-            const code = await shortLinks.createShortLink(queryString, c.req.query('shortCode'));
+            const code = await shortLinks.createShortLink(queryString, c.req.query('shortCode'), target);
             return c.text(code);
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
     });
 
-    const redirectHandler = (prefix) => async (c) => {
+    const redirectHandler = (destination, target = destination) => async (c) => {
         try {
             const code = c.req.param('code');
             const shortLinks = requireShortLinkService(services.shortLinks);
-            const originalParam = await shortLinks.resolveShortCode(code);
+            const originalParam = await shortLinks.resolveShortCode(code, target);
             if (!originalParam) return c.text('Short URL not found', 404);
 
             const url = new URL(c.req.url);
-            return c.redirect(`${url.origin}/${prefix}${originalParam}`);
+            return c.redirect(`${url.origin}/${destination}${originalParam}`);
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
@@ -362,6 +379,7 @@ export function createApp(bindings = {}) {
     app.get('/b/:code', redirectHandler('singbox'));
     app.get('/c/:code', redirectHandler('clash'));
     app.get('/x/:code', redirectHandler('xray'));
+    app.get('/xj/:code', redirectHandler('xray', 'xj'));
 
     app.post('/config', async (c) => {
         try {
@@ -373,6 +391,18 @@ export function createApp(bindings = {}) {
             if (error instanceof SyntaxError) {
                 return c.text(`Invalid format: ${error.message}`, 400);
             }
+            return handleError(c, error, runtime.logger);
+        }
+    });
+
+    app.post('/inspect', async (c) => {
+        try {
+            const { input, userAgent } = await c.req.json();
+            if (!input || typeof input !== 'string') {
+                return c.json({ total: 0, parseIssues: [{ reason: '请输入订阅链接或节点内容' }], targets: [] }, 400);
+            }
+            return c.json(await inspectConversion(input, { lang: c.get('lang'), userAgent }));
+        } catch (error) {
             return handleError(c, error, runtime.logger);
         }
     });
@@ -394,13 +424,13 @@ export function createApp(bindings = {}) {
 
             const prefix = pathParts[1];
             const shortCode = pathParts[2];
-            if (!['b', 'c', 'x', 's'].includes(prefix)) return c.text(t('invalidShortUrl'), 400);
+            if (!['b', 'c', 'x', 'xj', 's'].includes(prefix)) return c.text(t('invalidShortUrl'), 400);
 
             const shortLinks = requireShortLinkService(services.shortLinks);
-            const originalParam = await shortLinks.resolveShortCode(shortCode);
+            const originalParam = await shortLinks.resolveShortCode(shortCode, prefix);
             if (!originalParam) return c.text(t('shortUrlNotFound'), 404);
 
-            const mapping = { b: 'singbox', c: 'clash', x: 'xray', s: 'surge' };
+            const mapping = { b: 'singbox', c: 'clash', x: 'xray', xj: 'xray', s: 'surge' };
             const originalUrl = `${urlObj.origin}/${mapping[prefix]}${originalParam}`;
             return c.json({ originalUrl });
         } catch (error) {
