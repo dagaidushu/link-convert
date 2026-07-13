@@ -136,6 +136,8 @@ proxy-groups:
         const subscription = await app.request('http://localhost/x/large-config');
         expect(subscription.status).toBe(200);
         expect(subscription.headers.get('location')).toBeNull();
+        expect(subscription.headers.get('cache-control')).toContain('no-store');
+        expect(subscription.headers.get('cloudflare-cdn-cache-control')).toBe('no-store');
         expect(await subscription.text()).toBeTruthy();
     });
 
@@ -163,6 +165,7 @@ proxy-groups:
         const res = await app.request(`http://localhost/xray?format=json&config=${encodeURIComponent(config)}`);
 
         expect(res.status).toBe(200);
+        expect(res.headers.get('cache-control')).toContain('no-store');
         const json = await res.json();
         expect(json.outbounds).toEqual(expect.arrayContaining([
             expect.objectContaining({ tag: 'VLESS', protocol: 'vless' })
