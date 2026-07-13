@@ -1,4 +1,4 @@
-import { decodeBase64 } from '../../utils.js';
+import { decodeBase64, parseArray, parseBool } from '../../utils.js';
 
 function normalizeArray(value) {
     if (!value) return undefined;
@@ -45,8 +45,12 @@ export function parseVmess(url) {
         tls = {
             enabled: true,
             server_name: vmessConfig.sni,
-            insecure: vmessConfig['skip-cert-verify'] || false
+            insecure: parseBool(vmessConfig['skip-cert-verify'] ?? vmessConfig.allowInsecure ?? vmessConfig.insecure, false)
         };
+        const fingerprint = vmessConfig.fp || vmessConfig.fingerprint;
+        if (fingerprint) tls.utls = { enabled: true, fingerprint };
+        if (vmessConfig.alpn) tls.alpn = parseArray(vmessConfig.alpn);
+        if (vmessConfig.ech) tls.ech = { enabled: true, config: vmessConfig.ech };
     }
 
     if (networkType === 'ws') {

@@ -6,7 +6,7 @@ export function parseVless(url) {
     const { host, port } = parseServerInfo(serverInfo);
 
     const tls = createTlsConfig(params);
-    if (tls.reality) {
+    if (tls.reality && !tls.utls) {
         tls.utls = {
             enabled: true,
             fingerprint: 'chrome'
