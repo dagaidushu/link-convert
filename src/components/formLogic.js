@@ -496,14 +496,6 @@ export const formLogicFn = (t) => {
                     // Shorten each link type
                     for (const [type, url] of Object.entries(this.generatedLinks)) {
                         try {
-                            let apiUrl = `${origin}/shorten-v2?url=${encodeURIComponent(url)}`;
-
-                            // For the first request, either use custom code or let backend generate
-                            // For subsequent requests, use the code from first request
-                            if (shortCode) {
-                                apiUrl += `&shortCode=${encodeURIComponent(shortCode)}`;
-                            }
-
                             // Map types to their corresponding path prefixes
                             const prefixMap = {
                                 xray: 'x',
@@ -513,11 +505,16 @@ export const formLogicFn = (t) => {
                                 surge: 's'
                             };
 
-                            apiUrl += `&target=${prefixMap[type]}`;
-                            if (this.shortLinkTtl) {
-                                apiUrl += `&ttl=${encodeURIComponent(this.shortLinkTtl)}`;
-                            }
-                            const response = await fetch(apiUrl);
+                            const response = await fetch(`${origin}/shorten-v2`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    url,
+                                    shortCode: shortCode || undefined,
+                                    target: prefixMap[type],
+                                    ttl: this.shortLinkTtl || undefined
+                                })
+                            });
                             if (!response.ok) {
                                 throw new Error(`Failed to shorten ${type} link`);
                             }
