@@ -117,6 +117,7 @@ export const formLogicFn = (t) => {
             loading: false,
             generatedLinks: null,
             shortenedLinks: null,
+            showFullLinks: false,
             conversionReport: null,
             inspecting: false,
             shortening: false,
@@ -382,6 +383,7 @@ export const formLogicFn = (t) => {
                     this.input = '';
                     this.generatedLinks = null;
                     this.shortenedLinks = null;
+                    this.showFullLinks = false;
                     this.customShortCode = '';
                     // Also clear from localStorage
                     localStorage.removeItem('customShortCode');
@@ -401,6 +403,7 @@ export const formLogicFn = (t) => {
             async submitForm() {
                 this.loading = true;
                 this.shortenedLinks = null; // Reset shortened links when generating new links
+                this.showFullLinks = false;
                 try {
                     // Get custom rules from the child component via the hidden input
                     const customRulesInput = document.querySelector('input[name="customRules"]');
@@ -437,7 +440,10 @@ export const formLogicFn = (t) => {
                         surge: origin + '/surge?' + queryString
                     };
 
-                    await this.loadConversionReport();
+                    await Promise.all([
+                        this.shortenLinks(),
+                        this.loadConversionReport()
+                    ]);
 
                     // Scroll to results
                     setTimeout(() => {
@@ -535,6 +541,7 @@ export const formLogicFn = (t) => {
                     }
 
                     this.shortenedLinks = shortened;
+                    this.showFullLinks = false;
                 } catch (error) {
                     console.error('Error shortening links:', error);
                     alert(window.APP_TRANSLATIONS.shortenFailed);
