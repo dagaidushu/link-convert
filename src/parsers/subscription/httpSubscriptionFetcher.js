@@ -103,9 +103,7 @@ async function fetchSubscriptionResponse(urlValue, userAgent) {
                 method: 'GET',
                 headers,
                 redirect: 'manual',
-                signal: controller.signal,
-                cache: 'no-store',
-                cf: { cacheTtl: 0 }
+                signal: controller.signal
             });
         } catch (error) {
             if (error?.name === 'AbortError') {
