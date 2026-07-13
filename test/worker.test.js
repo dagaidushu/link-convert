@@ -23,7 +23,11 @@ describe('Worker', () => {
         expect(res.status).toBe(200);
         expect(res.headers.get('content-type')).toContain('text/html');
         const text = await res.text();
-        expect(text).toContain('Sublink Worker');
+        expect(text).toContain('Sublink Conversion');
+        expect(text).toContain('允许不安全证书');
+        expect(text).toContain('原样订阅');
+        expect(text).toContain('转换配置');
+        expect(text).not.toContain("${t('");
     });
 
     it('GET /singbox returns JSON', async () => {
@@ -113,5 +117,107 @@ proxy-groups:
         const text = await res.text();
         expect(text).toBeTruthy();
         expect(kvMock.put).toHaveBeenCalled();
+    });
+
+    it('POST /shorten-v2 creates a short link for a large conversion URL', async () => {
+        const app = createTestApp();
+        const node = 'vless://11111111-1111-1111-1111-111111111111@node.example:443?security=tls&sni=node.example#VLESS';
+        const fullUrl = `http://localhost/xray?config=${encodeURIComponent(Array(500).fill(node).join('\n'))}`;
+
+        const created = await app.request('http://localhost/shorten-v2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: fullUrl, shortCode: 'large-config', target: 'x' })
+        });
+
+        expect(created.status).toBe(200);
+        expect(await created.text()).toBe('large-config');
+
+        const subscription = await app.request('http://localhost/x/large-config');
+        expect(subscription.status).toBe(200);
+        expect(subscription.headers.get('location')).toBeNull();
+        expect(await subscription.text()).toBeTruthy();
+    });
+
+    it('POST /inspect returns protocol compatibility details', async () => {
+        const app = createTestApp();
+        const input = [
+            'vless://11111111-1111-1111-1111-111111111111@node.example:443?security=tls&sni=node.example#VLESS',
+            'hysteria2://secret@hy2.example:443?sni=hy2.example#HY2'
+        ].join('\n');
+        const res = await app.request('http://localhost/inspect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ input })
+        });
+
+        expect(res.status).toBe(200);
+        const report = await res.json();
+        expect(report.total).toBe(2);
+        expect(report.targets.find(target => target.key === 'xrayJson').skipped).toHaveLength(1);
+    });
+
+    it('GET /xray with format=json returns an Xray configuration', async () => {
+        const app = createTestApp();
+        const config = 'vless://11111111-1111-1111-1111-111111111111@node.example:443?security=tls&sni=node.example#VLESS';
+        const res = await app.request(`http://localhost/xray?format=json&config=${encodeURIComponent(config)}`);
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.outbounds).toEqual(expect.arrayContaining([
+            expect.objectContaining({ tag: 'VLESS', protocol: 'vless' })
+        ]));
+    });
+
+    it('keeps target-specific short links separate when they share a code', async () => {
+        const app = createTestApp();
+        const config = 'vless://11111111-1111-1111-1111-111111111111@node.example:443?security=tls&sni=node.example#VLESS';
+        const xrayUrl = `http://localhost/xray?config=${encodeURIComponent(config)}`;
+        const jsonUrl = `http://localhost/xray?format=json&config=${encodeURIComponent(config)}`;
+
+        await app.request(`http://localhost/shorten-v2?target=x&shortCode=shared&url=${encodeURIComponent(xrayUrl)}`);
+        await app.request(`http://localhost/shorten-v2?target=xj&shortCode=shared&url=${encodeURIComponent(jsonUrl)}`);
+
+        const base64Link = await app.request(`http://localhost/resolve?url=${encodeURIComponent('http://localhost/x/shared')}`);
+        const jsonLink = await app.request(`http://localhost/resolve?url=${encodeURIComponent('http://localhost/xj/shared')}`);
+        const base64Original = await base64Link.json();
+        const jsonOriginal = await jsonLink.json();
+
+        expect(base64Original.originalUrl).not.toContain('format=json');
+        expect(jsonOriginal.originalUrl).toContain('format=json');
+    });
+
+    it('serves a generated short link using its target-specific KV key', async () => {
+        const app = createTestApp();
+        const config = 'vless://11111111-1111-1111-1111-111111111111@node.example:443?security=tls&sni=node.example#VLESS';
+        const fullUrl = `http://localhost/xray?config=${encodeURIComponent(config)}`;
+
+        const created = await app.request(`http://localhost/shorten-v2?target=x&shortCode=redirected&url=${encodeURIComponent(fullUrl)}`);
+        expect(created.status).toBe(200);
+
+        const subscription = await app.request('http://localhost/x/redirected');
+        expect(subscription.status).toBe(200);
+        expect(subscription.headers.get('location')).toBeNull();
+        expect(await subscription.text()).toBeTruthy();
+    });
+
+    it('lists and deletes short links when the management token is valid', async () => {
+        const app = createTestApp({ config: { shortLinkAdminToken: 'test-token' } });
+        const targetUrl = 'http://localhost/xray?config=ss%3A%2F%2Fexample';
+        const created = await app.request(`http://localhost/shorten-v2?target=x&shortCode=managed&ttl=86400&url=${encodeURIComponent(targetUrl)}`);
+        expect(created.status).toBe(200);
+
+        const headers = { Authorization: 'Bearer test-token' };
+        const listed = await app.request('http://localhost/short-links', { headers });
+        expect(listed.status).toBe(200);
+        const listData = await listed.json();
+        expect(listData.links).toEqual(expect.arrayContaining([
+            expect.objectContaining({ code: 'managed', target: 'x', expiresAt: expect.any(String) })
+        ]));
+
+        const deleted = await app.request('http://localhost/short-links/managed?target=x', { method: 'DELETE', headers });
+        expect(deleted.status).toBe(200);
+        const afterDelete = await app.request('http://localhost/short-links', { headers });
+        expect((await afterDelete.json()).links).toEqual([]);
     });
 });
