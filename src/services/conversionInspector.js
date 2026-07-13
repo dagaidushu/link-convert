@@ -1,33 +1,43 @@
 import { BaseConfigBuilder } from '../builders/BaseConfigBuilder.js';
+import { applyProxyOverrides, assessProxyForTarget, countProtocols, getTargetDefinitions } from './targetCapabilities.js';
 
-const TARGETS = [
-    { key: 'xray', label: '通用 Base64', protocols: null },
-    { key: 'singbox', label: 'Sing-box', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http']) },
-    { key: 'clash', label: 'Clash / Mihomo', protocols: new Set(['shadowsocks', 'shadowsocksr', 'vmess', 'vless', 'trojan', 'hysteria', 'hysteria2', 'tuic', 'anytls', 'wireguard', 'socks', 'http', 'naive']) },
-    { key: 'surge', label: 'Surge', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'hysteria2', 'tuic', 'socks', 'http']) },
-    { key: 'xrayJson', label: 'Xray JSON', protocols: new Set(['shadowsocks', 'vmess', 'vless', 'trojan', 'socks', 'http']) }
-];
-
-export async function inspectConversion(input, { lang = 'zh-CN', userAgent } = {}) {
+export async function inspectConversion(input, { lang = 'zh-CN', userAgent, allowInsecure = false } = {}) {
     const parser = new BaseConfigBuilder(input, {}, lang, userAgent);
     const proxies = await parser.parseCustomItems();
     const parseReport = parser.getConversionReport();
+    const preparedProxies = proxies.map(proxy => applyProxyOverrides(proxy, { allowInsecure }));
 
     return {
         total: proxies.length,
+        protocolCounts: countProtocols(proxies),
         parseIssues: parseReport.skipped,
-        targets: TARGETS.map(target => {
-            const skipped = proxies
-                .filter(proxy => target.protocols && !target.protocols.has(proxy?.type))
-                .map(proxy => ({
-                    name: proxy.tag || proxy.server || '未命名节点',
-                    type: proxy.type || 'unknown',
-                    reason: `${target.label} 不支持 ${proxy.type || 'unknown'}`
-                }));
+        overrides: { allowInsecure: Boolean(allowInsecure) },
+        targets: getTargetDefinitions().map(target => {
+            const skipped = [];
+            const warnings = [];
+            const warningNodes = new Set();
+            for (const [index, proxy] of preparedProxies.entries()) {
+                const name = proxy.tag || proxy.server || '未命名节点';
+                const type = proxy.type || 'unknown';
+                const assessment = assessProxyForTarget(target.key, proxy);
+                if (assessment.errors.length > 0) {
+                    skipped.push({ name, type, ...assessment.errors[0] });
+                } else {
+                    assessment.warnings.forEach(warning => {
+                        warningNodes.add(index);
+                        warnings.push({ name, type, ...warning });
+                    });
+                }
+            }
+            const converted = proxies.length - skipped.length;
             return {
                 key: target.key,
                 label: target.label,
-                converted: proxies.length - skipped.length,
+                mode: target.mode,
+                converted,
+                success: converted - warningNodes.size,
+                warningCount: warningNodes.size,
+                warnings,
                 skipped
             };
         })
