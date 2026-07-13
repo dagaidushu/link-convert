@@ -324,9 +324,7 @@ export function createApp(bindings = {}) {
                 try {
                     const response = await fetch(trimmedProxy, {
                         method: 'GET',
-                        headers,
-                        cache: 'no-store',
-                        cf: { cacheTtl: 0 }
+                        headers
                     });
                     const fetchedUserinfo = response.headers.get('subscription-userinfo');
                     if (fetchedUserinfo && subscriptionUserinfo === undefined) {
