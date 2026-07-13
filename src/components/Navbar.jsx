@@ -11,15 +11,6 @@ export const Navbar = () => {
                         <img src="/favicon.ico?v=8" alt={APP_NAME + ' logo'} class="w-12 h-12 rounded-lg object-cover shadow-sm" />
                         <span>{APP_NAME}</span>
                     </a>
-                    <div class="flex items-center gap-2">
-                        <button
-                            class="w-9 h-9 rounded-lg format-pill hover:text-primary-700 dark:hover:text-primary-300 transition-colors flex items-center justify-center"
-                            x-on:click="toggleDarkMode()"
-                            aria-label="Toggle dark mode"
-                        >
-                            <i class="fas" x-bind:class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
-                        </button>
-                    </div>
                 </div>
             </div>
         </nav>
