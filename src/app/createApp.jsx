@@ -31,6 +31,8 @@ export function createApp(bindings = {}) {
 
     const app = new Hono();
 
+    const getQuery = (c, name) => c.get('shortLinkParams')?.get(name) ?? c.req.query(name);
+
     app.use('*', async (c, next) => {
         const acceptLanguage = getRequestHeader(c.req, 'Accept-Language');
         const lang = c.req.query('lang') || acceptLanguage?.split(',')[0] || 'zh-CN';
@@ -78,25 +80,25 @@ export function createApp(bindings = {}) {
         );
     });
 
-    app.get('/singbox', async (c) => {
+    const singboxHandler = async (c) => {
         try {
-            const config = c.req.query('config');
+            const config = getQuery(c, 'config');
             if (!config) {
                 return c.text('Missing config parameter', 400);
             }
 
-            const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
-            const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
-            const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
-            const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
-            const enableClashUI = parseBooleanFlag(c.req.query('enable_clash_ui'));
-            const externalController = c.req.query('external_controller');
-            const externalUiDownloadUrl = c.req.query('external_ui_download_url');
-            const configId = c.req.query('configId');
+            const selectedRules = parseSelectedRules(getQuery(c, 'selectedRules'));
+            const customRules = parseJsonArray(getQuery(c, 'customRules'));
+            const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
+            const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
+            const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const enableClashUI = parseBooleanFlag(getQuery(c, 'enable_clash_ui'));
+            const externalController = getQuery(c, 'external_controller');
+            const externalUiDownloadUrl = getQuery(c, 'external_ui_download_url');
+            const configId = getQuery(c, 'configId');
             const lang = c.get('lang');
 
-            const requestedSingboxVersion = c.req.query('singbox_version') || c.req.query('sb_version') || c.req.query('sb_ver');
+            const requestedSingboxVersion = getQuery(c, 'singbox_version') || getQuery(c, 'sb_version') || getQuery(c, 'sb_ver');
             const requestUserAgent = getRequestHeader(c.req, 'User-Agent');
             const singboxConfigVersion = resolveSingboxConfigVersion(requestedSingboxVersion, requestUserAgent);
 
@@ -132,24 +134,25 @@ export function createApp(bindings = {}) {
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
-    });
+    };
+    app.get('/singbox', singboxHandler);
 
-    app.get('/clash', async (c) => {
+    const clashHandler = async (c) => {
         try {
-            const config = c.req.query('config');
+            const config = getQuery(c, 'config');
             if (!config) {
                 return c.text('Missing config parameter', 400);
             }
 
-            const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
-            const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
-            const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
-            const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
-            const enableClashUI = parseBooleanFlag(c.req.query('enable_clash_ui'));
-            const externalController = c.req.query('external_controller');
-            const externalUiDownloadUrl = c.req.query('external_ui_download_url');
-            const configId = c.req.query('configId');
+            const selectedRules = parseSelectedRules(getQuery(c, 'selectedRules'));
+            const customRules = parseJsonArray(getQuery(c, 'customRules'));
+            const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
+            const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
+            const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const enableClashUI = parseBooleanFlag(getQuery(c, 'enable_clash_ui'));
+            const externalController = getQuery(c, 'external_controller');
+            const externalUiDownloadUrl = getQuery(c, 'external_ui_download_url');
+            const configId = getQuery(c, 'configId');
             const lang = c.get('lang');
 
             let baseConfig;
@@ -181,21 +184,22 @@ export function createApp(bindings = {}) {
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
-    });
+    };
+    app.get('/clash', clashHandler);
 
-    app.get('/surge', async (c) => {
+    const surgeHandler = async (c) => {
         try {
-            const config = c.req.query('config');
+            const config = getQuery(c, 'config');
             if (!config) {
                 return c.text('Missing config parameter', 400);
             }
 
-            const selectedRules = parseSelectedRules(c.req.query('selectedRules'));
-            const customRules = parseJsonArray(c.req.query('customRules'));
-            const ua = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
-            const groupByCountry = parseBooleanFlag(c.req.query('group_by_country'));
-            const includeAutoSelect = c.req.query('include_auto_select') !== 'false';
-            const configId = c.req.query('configId');
+            const selectedRules = parseSelectedRules(getQuery(c, 'selectedRules'));
+            const customRules = parseJsonArray(getQuery(c, 'customRules'));
+            const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
+            const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
+            const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const configId = getQuery(c, 'configId');
             const lang = c.get('lang');
 
             let baseConfig;
@@ -225,7 +229,8 @@ export function createApp(bindings = {}) {
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
-    });
+    };
+    app.get('/surge', surgeHandler);
 
     app.get('/subconverter', (c) => {
         try {
@@ -270,15 +275,15 @@ export function createApp(bindings = {}) {
         }
     });
 
-    app.get('/xray', async (c) => {
-        const inputString = c.req.query('config');
+    const xrayHandler = async (c) => {
+        const inputString = getQuery(c, 'config');
         if (!inputString) {
             return c.text('Missing config parameter', 400);
         }
 
-        if (c.req.query('format') === 'json') {
+        if (getQuery(c, 'format') === 'json') {
             try {
-                const builder = new XrayConfigBuilder(inputString, c.get('lang'), c.req.query('ua') || getRequestHeader(c.req, 'User-Agent'));
+                const builder = new XrayConfigBuilder(inputString, c.get('lang'), getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent'));
                 const { config } = await builder.build();
                 return c.json(config, 200, { 'Content-Disposition': 'attachment; filename="xray.json"' });
             } catch (error) {
@@ -289,7 +294,7 @@ export function createApp(bindings = {}) {
         const proxylist = inputString.split('\n');
         const finalProxyList = [];
         let subscriptionUserinfo;
-        const userAgent = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
+        const userAgent = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
         const headers = { 'User-Agent': userAgent };
 
         for (const proxy of proxylist) {
@@ -328,7 +333,8 @@ export function createApp(bindings = {}) {
         }
 
         return c.text(encodeBase64(finalString), 200, responseHeaders);
-    });
+    };
+    app.get('/xray', xrayHandler);
 
     const createShortLink = async ({ url, shortCode, target = '', ttl }) => {
         if (!url) {
@@ -374,25 +380,24 @@ export function createApp(bindings = {}) {
         }
     });
 
-    const redirectHandler = (destination, target = destination) => async (c) => {
+    const serveShortLink = (target, handler) => async (c) => {
         try {
             const code = c.req.param('code');
             const shortLinks = requireShortLinkService(services.shortLinks);
             const originalParam = await shortLinks.resolveShortCode(code, target);
             if (!originalParam) return c.text('Short URL not found', 404);
-
-            const url = new URL(c.req.url);
-            return c.redirect(`${url.origin}/${destination}${originalParam}`);
+            c.set('shortLinkParams', new URLSearchParams(originalParam));
+            return handler(c);
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
     };
 
-    app.get('/s/:code', redirectHandler('surge', 's'));
-    app.get('/b/:code', redirectHandler('singbox', 'b'));
-    app.get('/c/:code', redirectHandler('clash', 'c'));
-    app.get('/x/:code', redirectHandler('xray', 'x'));
-    app.get('/xj/:code', redirectHandler('xray', 'xj'));
+    app.get('/s/:code', serveShortLink('s', surgeHandler));
+    app.get('/b/:code', serveShortLink('b', singboxHandler));
+    app.get('/c/:code', serveShortLink('c', clashHandler));
+    app.get('/x/:code', serveShortLink('x', xrayHandler));
+    app.get('/xj/:code', serveShortLink('xj', xrayHandler));
 
     app.get('/short-links', async (c) => {
         try {
