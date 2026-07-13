@@ -92,6 +92,7 @@ export function createApp(bindings = {}) {
             const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
             const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const allowInsecure = parseBooleanFlag(getQuery(c, 'allow_insecure'));
             const enableClashUI = parseBooleanFlag(getQuery(c, 'enable_clash_ui'));
             const externalController = getQuery(c, 'external_controller');
             const externalUiDownloadUrl = getQuery(c, 'external_ui_download_url');
@@ -123,7 +124,8 @@ export function createApp(bindings = {}) {
                 externalController,
                 externalUiDownloadUrl,
                 singboxConfigVersion,
-                includeAutoSelect
+                includeAutoSelect,
+                allowInsecure
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();
@@ -149,6 +151,7 @@ export function createApp(bindings = {}) {
             const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
             const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const allowInsecure = parseBooleanFlag(getQuery(c, 'allow_insecure'));
             const enableClashUI = parseBooleanFlag(getQuery(c, 'enable_clash_ui'));
             const externalController = getQuery(c, 'external_controller');
             const externalUiDownloadUrl = getQuery(c, 'external_ui_download_url');
@@ -172,7 +175,8 @@ export function createApp(bindings = {}) {
                 enableClashUI,
                 externalController,
                 externalUiDownloadUrl,
-                includeAutoSelect
+                includeAutoSelect,
+                allowInsecure
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();
@@ -199,6 +203,7 @@ export function createApp(bindings = {}) {
             const ua = getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
             const groupByCountry = parseBooleanFlag(getQuery(c, 'group_by_country'));
             const includeAutoSelect = getQuery(c, 'include_auto_select') !== 'false';
+            const allowInsecure = parseBooleanFlag(getQuery(c, 'allow_insecure'));
             const configId = getQuery(c, 'configId');
             const lang = c.get('lang');
 
@@ -216,7 +221,8 @@ export function createApp(bindings = {}) {
                 lang,
                 ua,
                 groupByCountry,
-                includeAutoSelect
+                includeAutoSelect,
+                allowInsecure
             );
             builder.setSubscriptionUrl(c.req.url);
             await builder.build();
@@ -283,7 +289,12 @@ export function createApp(bindings = {}) {
 
         if (getQuery(c, 'format') === 'json') {
             try {
-                const builder = new XrayConfigBuilder(inputString, c.get('lang'), getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent'));
+                const builder = new XrayConfigBuilder(
+                    inputString,
+                    c.get('lang'),
+                    getQuery(c, 'ua') || getRequestHeader(c.req, 'User-Agent'),
+                    parseBooleanFlag(getQuery(c, 'allow_insecure'))
+                );
                 const { config } = await builder.build();
                 return c.json(config, 200, { 'Content-Disposition': 'attachment; filename="xray.json"' });
             } catch (error) {
@@ -436,11 +447,15 @@ export function createApp(bindings = {}) {
 
     app.post('/inspect', async (c) => {
         try {
-            const { input, userAgent } = await c.req.json();
+            const { input, userAgent, allowInsecure = false } = await c.req.json();
             if (!input || typeof input !== 'string') {
                 return c.json({ total: 0, parseIssues: [{ reason: '请输入订阅链接或节点内容' }], targets: [] }, 400);
             }
-            return c.json(await inspectConversion(input, { lang: c.get('lang'), userAgent }));
+            return c.json(await inspectConversion(input, {
+                lang: c.get('lang'),
+                userAgent,
+                allowInsecure: parseBooleanFlag(allowInsecure)
+            }));
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }
@@ -523,7 +538,9 @@ function parseJsonArray(raw) {
 }
 
 function parseBooleanFlag(value) {
-    return value === 'true' || value === true;
+    if (typeof value === 'boolean') return value;
+    if (value === undefined || value === null) return false;
+    return ['true', '1'].includes(String(value).trim().toLowerCase());
 }
 
 function parseSemverLike(value) {
