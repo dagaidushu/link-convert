@@ -289,10 +289,11 @@ export function parseUrlParams(url) {
 export function createTlsConfig(params) {
 	let tls = { enabled: false };
 	if (params.security && params.security !== 'none') {
+		const insecureValue = params['skip-cert-verify'] ?? params.allowInsecure ?? params.allow_insecure ?? params.insecure;
 		tls = {
 			enabled: true,
 			server_name: params.sni || params.host,
-			insecure: !!params?.allowInsecure || !!params?.insecure || !!params?.allow_insecure,
+			insecure: parseBool(insecureValue, false),
 			// utls: {
 			//   enabled: true,
 			//   fingerprint: "chrome"
@@ -304,6 +305,16 @@ export function createTlsConfig(params) {
 				public_key: params.pbk,
 				short_id: params.sid,
 			};
+		}
+		const fingerprint = params.fp || params.fingerprint;
+		if (fingerprint) {
+			tls.utls = { enabled: true, fingerprint };
+		}
+		if (params.alpn) {
+			tls.alpn = parseArray(params.alpn);
+		}
+		if (params.ech) {
+			tls.ech = { enabled: true, config: params.ech };
 		}
 	}
 	return tls;
@@ -328,6 +339,15 @@ export function createTransportConfig(params) {
             type: 'httpupgrade',
             path: params.path ?? undefined,
             host: params.host ?? undefined,
+            headers
+        };
+    }
+    if (transportType === 'http' || transportType === 'h2') {
+        return {
+            type: transportType,
+            method: params.method || 'GET',
+            path: params.path ? parseArray(params.path) : ['/'],
+            host: parseArray(params.host),
             headers
         };
     }
