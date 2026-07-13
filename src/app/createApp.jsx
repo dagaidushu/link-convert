@@ -330,31 +330,44 @@ export function createApp(bindings = {}) {
         return c.text(encodeBase64(finalString), 200, responseHeaders);
     });
 
+    const createShortLink = async ({ url, shortCode, target = '', ttl }) => {
+        if (!url) {
+            throw new ServiceError('Missing URL parameter', 400);
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(url);
+        } catch {
+            throw new ServiceError('Invalid URL parameter', 400);
+        }
+
+        if (target && !['s', 'b', 'c', 'x', 'xj'].includes(target)) {
+            throw new ServiceError('Invalid short link target', 400);
+        }
+
+        const shortLinks = requireShortLinkService(services.shortLinks);
+        return shortLinks.createShortLink(parsedUrl.search, shortCode, target, ttl);
+    };
+
     app.get('/shorten-v2', async (c) => {
         try {
-            const url = c.req.query('url');
-            if (!url) {
-                return c.text('Missing URL parameter', 400);
-            }
-            let parsedUrl;
-            try {
-                parsedUrl = new URL(url);
-            } catch {
-                return c.text('Invalid URL parameter', 400);
-            }
-            const queryString = parsedUrl.search;
+            const code = await createShortLink({
+                url: c.req.query('url'),
+                shortCode: c.req.query('shortCode'),
+                target: c.req.query('target') || '',
+                ttl: c.req.query('ttl')
+            });
+            return c.text(code);
+        } catch (error) {
+            return handleError(c, error, runtime.logger);
+        }
+    });
 
-            const target = c.req.query('target') || '';
-            if (target && !['s', 'b', 'c', 'x', 'xj'].includes(target)) {
-                return c.text('Invalid short link target', 400);
-            }
-            const shortLinks = requireShortLinkService(services.shortLinks);
-            const code = await shortLinks.createShortLink(
-                queryString,
-                c.req.query('shortCode'),
-                target,
-                c.req.query('ttl')
-            );
+    app.post('/shorten-v2', async (c) => {
+        try {
+            const { url, shortCode, target, ttl } = await c.req.json();
+            const code = await createShortLink({ url, shortCode, target, ttl });
             return c.text(code);
         } catch (error) {
             return handleError(c, error, runtime.logger);
