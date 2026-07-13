@@ -7,9 +7,10 @@ import { buildSelectorMembers as buildSelectorMemberList, buildNodeSelectMembers
 import { normalizeGroupName } from './helpers/groupNameUtils.js';
 
 export class SingboxConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, singboxVersion = '1.12', includeAutoSelect = true) {
+    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, singboxVersion = '1.12', includeAutoSelect = true, allowInsecure = false) {
         const resolvedBaseConfig = baseConfig ?? SING_BOX_CONFIG;
-        super(inputString, resolvedBaseConfig, lang, userAgent, groupByCountry, includeAutoSelect);
+        super(inputString, resolvedBaseConfig, lang, userAgent, groupByCountry, includeAutoSelect, allowInsecure);
+        this.targetKey = 'singbox';
 
         this.selectedRules = selectedRules;
         this.customRules = customRules;
@@ -125,6 +126,19 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         // Remove packet_encoding for now - it's version-specific in sing-box
         // xudp is default in newer versions
         delete sanitized.packet_encoding;
+
+        if (sanitized.transport?.type === 'h2') {
+            sanitized.transport = { ...sanitized.transport, type: 'http' };
+        }
+
+        if (sanitized.type === 'anytls') {
+            sanitized.idle_session_check_interval ??= sanitized['idle-session-check-interval'];
+            sanitized.idle_session_timeout ??= sanitized['idle-session-timeout'];
+            sanitized.min_idle_session ??= sanitized['min-idle-session'];
+            delete sanitized['idle-session-check-interval'];
+            delete sanitized['idle-session-timeout'];
+            delete sanitized['min-idle-session'];
+        }
 
         return sanitized;
     }

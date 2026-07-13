@@ -19,7 +19,8 @@ function buildStreamSettings(proxy) {
         stream.tlsSettings = {
             serverName: tls.server_name,
             allowInsecure: !!tls.insecure,
-            alpn: tls.alpn
+            alpn: tls.alpn,
+            fingerprint: tls.utls?.fingerprint
         };
     } else {
         stream.security = 'none';
@@ -29,8 +30,14 @@ function buildStreamSettings(proxy) {
         stream.wsSettings = { path: transport.path || '/', headers: transport.headers };
     } else if (transport?.type === 'grpc') {
         stream.grpcSettings = { serviceName: transport.service_name };
-    } else if (transport?.type === 'http') {
-        stream.httpSettings = { path: Array.isArray(transport.path) ? transport.path : [transport.path || '/'], host: transport.host ? [transport.host] : undefined };
+    } else if (transport?.type === 'http' || transport?.type === 'h2') {
+        stream.network = 'http';
+        stream.httpSettings = {
+            path: Array.isArray(transport.path) ? transport.path : [transport.path || '/'],
+            host: transport.host
+                ? (Array.isArray(transport.host) ? transport.host : [transport.host])
+                : undefined
+        };
     } else if (transport?.type === 'httpupgrade') {
         stream.httpupgradeSettings = { path: transport.path || '/', host: transport.host || transport.headers?.host };
     } else if (transport?.type === 'xhttp') {
@@ -40,8 +47,9 @@ function buildStreamSettings(proxy) {
 }
 
 export class XrayConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, lang, userAgent) {
-        super(inputString, { outbounds: [] }, lang, userAgent);
+    constructor(inputString, lang, userAgent, allowInsecure = false) {
+        super(inputString, { outbounds: [] }, lang, userAgent, false, true, allowInsecure);
+        this.targetKey = 'xrayJson';
         this.config = {
             log: { loglevel: 'warning' },
             inbounds: [{ tag: 'socks-in', listen: '127.0.0.1', port: 10808, protocol: 'socks', settings: { auth: 'noauth', udp: true } }],

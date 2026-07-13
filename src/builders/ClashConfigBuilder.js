@@ -72,11 +72,12 @@ function getClashTransportOptions(transport) {
 }
 
 export class ClashConfigBuilder extends BaseConfigBuilder {
-    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true) {
+    constructor(inputString, selectedRules, customRules, baseConfig, lang, userAgent, groupByCountry = false, enableClashUI = false, externalController, externalUiDownloadUrl, includeAutoSelect = true, allowInsecure = false) {
         if (!baseConfig) {
             baseConfig = CLASH_CONFIG;
         }
-        super(inputString, baseConfig, lang, userAgent, groupByCountry, includeAutoSelect);
+        super(inputString, baseConfig, lang, userAgent, groupByCountry, includeAutoSelect, allowInsecure);
+        this.targetKey = 'clash';
         this.selectedRules = selectedRules;
         this.customRules = customRules;
         this.countryGroupNames = [];
@@ -180,8 +181,10 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     alterId: proxy.alter_id ?? 0,
                     cipher: proxy.security,
                     tls: proxy.tls?.enabled || false,
+                    'client-fingerprint': proxy.tls?.utls?.fingerprint,
                     servername: proxy.tls?.server_name || '',
                     'skip-cert-verify': !!proxy.tls?.insecure,
+                    ...(proxy.tls?.alpn ? { alpn: proxy.tls.alpn } : {}),
                     network: proxy.transport?.type || proxy.network || 'tcp',
                     'ws-opts': proxy.transport?.type === 'ws'
                         ? {
@@ -241,7 +244,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     tfo: proxy.tcp_fast_open,
                     'skip-cert-verify': !!proxy.tls?.insecure,
                     udp: getClashUdpValue(proxy),
-                    ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
+                    ...(proxy.tls?.alpn || proxy.alpn ? { alpn: proxy.tls?.alpn || proxy.alpn } : {}),
                     ...(proxy.packet_encoding ? { 'packet-encoding': proxy.packet_encoding } : {}),
                     'flow': proxy.flow ?? undefined,
                     ...getClashTransportOptions(proxy.transport),
@@ -263,7 +266,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     sni: proxy.tls?.server_name || '',
                     'skip-cert-verify': !!proxy.tls?.insecure,
                     ...(proxy.hop_interval !== undefined ? { 'hop-interval': proxy.hop_interval } : {}),
-                    ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
+                    ...(proxy.tls?.alpn || proxy.alpn ? { alpn: proxy.tls?.alpn || proxy.alpn } : {}),
                     ...(proxy.fast_open !== undefined ? { 'fast-open': proxy.fast_open } : {}),
                 };
             case 'hysteria':
@@ -308,7 +311,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     } : undefined,
                     tfo: proxy.tcp_fast_open,
                     'skip-cert-verify': !!proxy.tls?.insecure,
-                    ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
+                    ...(proxy.tls?.alpn || proxy.alpn ? { alpn: proxy.tls?.alpn || proxy.alpn } : {}),
                     'flow': proxy.flow ?? undefined,
                     udp: getClashUdpValue(proxy),
                     ...getClashTransportOptions(proxy.transport),
@@ -343,9 +346,9 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     ...(proxy.tls?.server_name ? { sni: proxy.tls.server_name } : {}),
                     ...(proxy.tls?.insecure !== undefined ? { 'skip-cert-verify': !!proxy.tls.insecure } : {}),
                     ...(proxy.tls?.alpn ? { alpn: proxy.tls.alpn } : {}),
-                    ...(proxy['idle-session-check-interval'] !== undefined ? { 'idle-session-check-interval': proxy['idle-session-check-interval'] } : {}),
-                    ...(proxy['idle-session-timeout'] !== undefined ? { 'idle-session-timeout': proxy['idle-session-timeout'] } : {}),
-                    ...(proxy['min-idle-session'] !== undefined ? { 'min-idle-session': proxy['min-idle-session'] } : {}),
+                    ...(proxy.idle_session_check_interval !== undefined ? { 'idle-session-check-interval': proxy.idle_session_check_interval } : {}),
+                    ...(proxy.idle_session_timeout !== undefined ? { 'idle-session-timeout': proxy.idle_session_timeout } : {}),
+                    ...(proxy.min_idle_session !== undefined ? { 'min-idle-session': proxy.min_idle_session } : {}),
                 };
             case 'shadowsocksr':
                 return {

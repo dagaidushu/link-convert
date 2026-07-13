@@ -3,6 +3,7 @@ import { isHttpProxyUri } from '../parsers/protocols/httpProxyParser.js';
 import { createStableProviderName, deepCopy, tryDecodeSubscriptionLines, decodeBase64 } from '../utils.js';
 import { createTranslator } from '../i18n/index.js';
 import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/index.js';
+import { applyProxyOverrides, assessProxyForTarget } from '../services/targetCapabilities.js';
 
 function isIgnorableSubscriptionLine(value) {
     if (typeof value !== 'string') return true;
@@ -15,7 +16,7 @@ function isIgnorableSubscriptionLine(value) {
 }
 
 export class BaseConfigBuilder {
-    constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true) {
+    constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true, allowInsecure = false) {
         this.inputString = inputString;
         this.config = deepCopy(baseConfig);
         this.customRules = [];
@@ -25,10 +26,12 @@ export class BaseConfigBuilder {
         this.appliedOverrideKeys = new Set();
         this.groupByCountry = groupByCountry;
         this.includeAutoSelect = includeAutoSelect;
+        this.allowInsecure = allowInsecure;
+        this.targetKey = null;
         this.providerUrls = [];  // URLs to use as providers (auto-sync)
         this.autoProviderDescriptors = undefined;
         this.subscriptionUserinfo = undefined;
-        this.conversionReport = { converted: [], skipped: [], parseIssues: [] };
+        this.conversionReport = { converted: [], skipped: [], warnings: [], parseIssues: [] };
     }
 
     async build() {
@@ -104,8 +107,17 @@ export class BaseConfigBuilder {
                 // Check if it's an HTTP(S) URL - may use as provider if format matches
                 if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
                     if (isHttpProxyUri(trimmedUrl)) {
-                        const proxy = await ProxyParser.parse(trimmedUrl, this.userAgent);
-                        if (proxy) parsedItems.push(proxy);
+                        try {
+                            const proxy = await ProxyParser.parse(trimmedUrl, this.userAgent);
+                            if (proxy) parsedItems.push(proxy);
+                        } catch (error) {
+                            this.conversionReport.parseIssues.push({
+                                value: trimmedUrl,
+                                code: 'invalid_node',
+                                fields: [],
+                                reason: error?.message || '节点解析失败'
+                            });
+                        }
                         continue;
                     }
                     const { fetchSubscriptionWithFormat } = await import('../parsers/subscription/httpSubscriptionFetcher.js');
@@ -146,9 +158,16 @@ export class BaseConfigBuilder {
                                     if (item && typeof item === 'object' && item.tag) {
                                         parsedItems.push(item);
                                     } else if (typeof item === 'string') {
-                                        const subResult = await ProxyParser.parse(item, this.userAgent);
-                                        if (subResult) {
-                                            parsedItems.push(subResult);
+                                        try {
+                                            const subResult = await ProxyParser.parse(item, this.userAgent);
+                                            if (subResult) parsedItems.push(subResult);
+                                        } catch (error) {
+                                            this.conversionReport.parseIssues.push({
+                                                value: item,
+                                                code: 'invalid_node',
+                                                fields: [],
+                                                reason: error?.message || '节点解析失败'
+                                            });
                                         }
                                     }
                                 }
@@ -165,7 +184,18 @@ export class BaseConfigBuilder {
                 }
 
                 // Non-HTTP URLs (protocol URIs like ss://, vmess://, etc.)
-                const result = await ProxyParser.parse(processedUrl, this.userAgent);
+                let result;
+                try {
+                    result = await ProxyParser.parse(processedUrl, this.userAgent);
+                } catch (error) {
+                    this.conversionReport.parseIssues.push({
+                        value: trimmedUrl,
+                        code: 'invalid_node',
+                        fields: [],
+                        reason: error?.message || '节点解析失败'
+                    });
+                    continue;
+                }
                 // Handle yamlConfig, singboxConfig, and surgeConfig types (they have the same structure)
                 if (result && typeof result === 'object' && (result.type === 'yamlConfig' || result.type === 'singboxConfig' || result.type === 'surgeConfig')) {
                     if (result.config) {
@@ -185,11 +215,20 @@ export class BaseConfigBuilder {
                         if (item && typeof item === 'object' && item.tag) {
                             parsedItems.push(item);
                         } else if (typeof item === 'string') {
-                            const subResult = await ProxyParser.parse(item, this.userAgent);
-                            if (subResult) {
-                                parsedItems.push(subResult);
-                            } else {
-                                this.conversionReport.parseIssues.push({ value: item, reason: '无法识别的节点协议或链接格式' });
+                            try {
+                                const subResult = await ProxyParser.parse(item, this.userAgent);
+                                if (subResult) {
+                                    parsedItems.push(subResult);
+                                } else {
+                                    this.conversionReport.parseIssues.push({ value: item, reason: '无法识别的节点协议或链接格式' });
+                                }
+                            } catch (error) {
+                                this.conversionReport.parseIssues.push({
+                                    value: item,
+                                    code: 'invalid_node',
+                                    fields: [],
+                                    reason: error?.message || '节点解析失败'
+                                });
                             }
                         }
                     }
@@ -332,6 +371,7 @@ export class BaseConfigBuilder {
     getConversionReport() {
         return {
             converted: [...this.conversionReport.converted],
+            warnings: [...this.conversionReport.warnings],
             skipped: [...this.conversionReport.skipped, ...this.conversionReport.parseIssues]
         };
     }
@@ -400,15 +440,31 @@ export class BaseConfigBuilder {
         const validItems = customItems.filter(item => item != null);
         validItems.forEach(item => {
             if (item?.tag) {
-                if (!this.isProxySupported(item)) {
+                const preparedItem = applyProxyOverrides(item, { allowInsecure: this.allowInsecure });
+                const assessment = this.targetKey
+                    ? assessProxyForTarget(this.targetKey, preparedItem)
+                    : { errors: [], warnings: [] };
+                if (!this.isProxySupported(preparedItem) || assessment.errors.length > 0) {
+                    const problem = assessment.errors[0] || {
+                        code: 'unsupported_protocol',
+                        fields: ['type'],
+                        reason: '目标客户端不支持该协议'
+                    };
                     this.conversionReport.skipped.push({
                         name: item.tag,
                         type: item.type || 'unknown',
-                        reason: '目标客户端不支持该协议'
+                        ...problem
                     });
                     return;
                 }
-                const convertedProxy = this.convertProxy(item);
+                assessment.warnings.forEach(warning => {
+                    this.conversionReport.warnings.push({
+                        name: item.tag,
+                        type: item.type || 'unknown',
+                        ...warning
+                    });
+                });
+                const convertedProxy = this.convertProxy(preparedItem);
                 if (typeof convertedProxy === 'string' && convertedProxy.trimStart().startsWith('#')) {
                     this.conversionReport.skipped.push({
                         name: item.tag,
