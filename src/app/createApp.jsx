@@ -375,10 +375,10 @@ export function createApp(bindings = {}) {
         }
     };
 
-    app.get('/s/:code', redirectHandler('surge'));
-    app.get('/b/:code', redirectHandler('singbox'));
-    app.get('/c/:code', redirectHandler('clash'));
-    app.get('/x/:code', redirectHandler('xray'));
+    app.get('/s/:code', redirectHandler('surge', 's'));
+    app.get('/b/:code', redirectHandler('singbox', 'b'));
+    app.get('/c/:code', redirectHandler('clash', 'c'));
+    app.get('/x/:code', redirectHandler('xray', 'x'));
     app.get('/xj/:code', redirectHandler('xray', 'xj'));
 
     app.get('/short-links', async (c) => {
