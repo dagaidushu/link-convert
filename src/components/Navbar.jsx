@@ -1,6 +1,6 @@
 /** @jsxRuntime automatic */
 /** @jsxImportSource hono/jsx */
-import { APP_NAME, GITHUB_REPO, DOCS_URL } from '../constants.js';
+import { APP_NAME } from '../constants.js';
 
 export const Navbar = () => {
     return (
@@ -12,24 +12,6 @@ export const Navbar = () => {
                         <span>{APP_NAME}</span>
                     </a>
                     <div class="flex items-center gap-2">
-                        <a
-                            href={DOCS_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="h-9 px-3 format-pill rounded-lg text-sm font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors flex items-center gap-2"
-                        >
-                            <i class="fas fa-book"></i>
-                            <span class="hidden sm:inline">Docs</span>
-                        </a>
-                        <a
-                            href={GITHUB_REPO}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="h-9 px-3 format-pill rounded-lg text-sm font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors flex items-center gap-2"
-                        >
-                            <i class="fab fa-github"></i>
-                            <span class="hidden sm:inline">GitHub</span>
-                        </a>
                         <button
                             class="w-9 h-9 rounded-lg format-pill hover:text-primary-700 dark:hover:text-primary-300 transition-colors flex items-center justify-center"
                             x-on:click="toggleDarkMode()"
